@@ -1,0 +1,31 @@
+Package: projekt_R
+Title: Prosta Analiza Szeregow Czasowych Sprzedazy
+Version: 0.1.0
+Authors@R: 
+    person("Kinga", "Matenka"))
+Description: Prosty pakiet R do analizy szeregow czasowych sprzedazy. Pakiet wczytuje dane, sprawdza ich jakosc, czysci dane, liczy metryki biznesowe, tworzy wykresy, przygotowuje podsumowanie menedzerskie oraz prognozuje sprzedaz metodami ARIMA i Prophet. Raport PDF jest przygotowany tak, aby generowal sie szybciej.
+License: MIT
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1.0)
+Imports:
+    dplyr,
+    tidyr,
+    readr,
+    lubridate,
+    ggplot2,
+    slider,
+    forecast,
+    prophet,
+    tibble,
+    knitr
+Suggests:
+    rmarkdown,
+    tinytex,
+    shiny,
+    DT,
+    scales,
+    devtools,
+    roxygen2

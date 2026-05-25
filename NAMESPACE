@@ -1,0 +1,8 @@
+export(load_sales_data)
+export(validate_sales_ts)
+export(clean_sales_ts)
+export(compute_sales_metrics)
+export(plot_sales_trends)
+export(sales_ts_logic)
+export(create_management_summary)
+export(create_prognosis)
