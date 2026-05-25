@@ -1,5 +1,3 @@
-[README.md](https://github.com/user-attachments/files/28218630/README.md)
-
 Projekt zaliczeniowy: pakiet R do analizy szeregów czasowych sprzedaży.
 
 Autor: Kinga Mateńka
