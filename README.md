@@ -1,7 +1,5 @@
 Projekt zaliczeniowy: pakiet R do analizy szeregów czasowych sprzedaży.
 
-Autor: Kinga Mateńka
-
 ## Co robi projekt?
 
 Pakiet wykonuje cały proces analizy danych sprzedażowych:
