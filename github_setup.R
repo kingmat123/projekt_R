@@ -1,7 +1,8 @@
-# Automatyczne przygotowanie projektu do GitHub
-# Uruchom w glownym folderze projektu: source("github_setup.R")
+# 1. Zapisz token (wklej go w konsoli, gdy program o to poprosi)
+gitcreds::gitcreds_set()
 
-if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
-library(usethis)
-use_git()
-use_github(name = "salesTSKinga", private = FALSE)
+# 2. Zainicjuj Gita w folderze (jeśli RStudio zapyta o restart, kliknij YES i uruchom krok 3)
+usethis::use_git()
+
+# 3. Utwórz repozytorium na GitHubie i wyślij pliki
+usethis::use_github()
