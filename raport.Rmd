@@ -1,0 +1,275 @@
+
+---
+title: "Analiza szeregów czasowych sprzedaży"
+author: "Kinga Mateńka"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+fontsize: 11pt
+geometry: margin=2cm
+---
+
+```{r setup, include=FALSE}
+source("../R/funkcje.R")
+
+library(dplyr)
+library(ggplot2)
+library(knitr)
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+# Cel projektu
+
+Celem projektu jest przygotowanie prostego pakietu R do analizy szeregów czasowych
+sprzedaży. Pakiet jest przeznaczony dla zespołu analityki biznesowej w firmie handlowej.
+
+Pakiet wykonuje pełny proces analizy:
+
+1. Wczytuje dane,
+2. Sprawdza ich jakość,
+3. Czyści dane,
+4. Liczy metryki biznesowe,
+5. Tworzy wykresy,
+6. Generuje podsumowanie menedżerskie,
+7. Tworzy prognozę sprzedaży metodami ARIMA i Prophet.
+
+# Wczytanie danych
+
+```{r}
+sales_data <- load_sales_data(
+  train_path = "../data/train.csv",
+  stores_path = "../data/stores.csv",
+  holidays_path = "../data/holidays_events.csv"
+)
+
+basic_info <- tibble::tibble(
+  miara = c("Liczba wierszy", "Liczba sklepów", "Liczba kategorii", "Pierwsza data", "Ostatnia data"),
+  wartosc = c(
+    nrow(sales_data),
+    dplyr::n_distinct(sales_data$store_nbr),
+    dplyr::n_distinct(sales_data$family),
+    as.character(min(sales_data$date, na.rm = TRUE)),
+    as.character(max(sales_data$date, na.rm = TRUE))
+  )
+)
+
+knitr::kable(basic_info, caption = "Podstawowe informacje o zbiorze danych")
+```
+
+# Walidacja danych
+
+```{r}
+validation <- validate_sales_ts(sales_data)
+
+knitr::kable(
+  validation$summary,
+  caption = "Podsumowanie kontroli jakości danych"
+)
+```
+
+# Czyszczenie danych
+
+```{r}
+clean_data <- clean_sales_ts(sales_data)
+
+report_data <- clean_data |>
+  filter(
+    store_nbr %in% c(1, 2, 3),
+    family %in% c("GROCERY I", "BEVERAGES", "DAIRY")
+  )
+
+clean_info <- tibble::tibble(
+  miara = c("Liczba wierszy po czyszczeniu", "Liczba sklepów", "Liczba kategorii"),
+  wartosc = c(
+    nrow(clean_data),
+    dplyr::n_distinct(clean_data$store_nbr),
+    dplyr::n_distinct(clean_data$family)
+  )
+)
+
+knitr::kable(clean_info, caption = "Dane po czyszczeniu")
+```
+
+# Metryki biznesowe
+
+```{r}
+metrics <- compute_sales_metrics(report_data)
+
+top_metrics <- metrics$metrics |>
+  arrange(desc(total_sales)) |>
+  select(
+    sklep = store_nbr,
+    kategoria = family,
+    sprzedaz_calkowita = total_sales,
+    srednia_sprzedaz = average_sales,
+    maks_sprzedaz = max_sales,
+    udzial_promocji = promotion_share
+  ) |>
+  head(10)
+
+knitr::kable(
+  top_metrics,
+  digits = 2,
+  caption = "Top 10 sklepów i kategorii według sprzedaży"
+)
+```
+
+# Trend sprzedaży
+
+```{r fig.width=7, fig.height=4}
+plot_sales_trends(
+  clean_data,
+  store = 1,
+  category = c("GROCERY I", "BEVERAGES")
+)
+```
+
+# Analiza dla wybranych metadanych
+
+```{r}
+logic_result <- sales_ts_logic(
+  clean_data,
+  city = "Quito",
+  type = "D",
+  category = "GROCERY I",
+  date_from = "2017-01-01",
+  date_to = "2017-08-15"
+)
+
+logic_table <- logic_result$metrics$metrics |>
+  arrange(desc(total_sales)) |>
+  select(
+    sklep = store_nbr,
+    kategoria = family,
+    sprzedaz_calkowita = total_sales,
+    srednia_sprzedaz = average_sales,
+    maks_sprzedaz = max_sales,
+    udzial_promocji = promotion_share
+  ) |>
+  head(10)
+
+knitr::kable(
+  logic_table,
+  digits = 2,
+  caption = "Analiza segmentu: Quito, typ D, GROCERY I"
+)
+```
+
+```{r fig.width=7, fig.height=4}
+logic_result$plot
+```
+
+# Podsumowanie menedżerskie
+
+```{r}
+manager <- create_management_summary(clean_data)
+
+manager$text
+```
+
+## Ranking sklepów
+
+```{r}
+store_table <- manager$store_ranking |>
+  select(
+    sklep = store_nbr,
+    miasto = city,
+    typ = type,
+    sprzedaz_calkowita = total_sales
+  ) |>
+  head(10)
+
+knitr::kable(
+  store_table,
+  digits = 2,
+  caption = "Top 10 sklepów według sprzedaży"
+)
+```
+
+## Ranking kategorii
+
+```{r}
+category_table <- manager$category_ranking |>
+  select(
+    kategoria = family,
+    sprzedaz_calkowita = total_sales
+  ) |>
+  head(10)
+
+knitr::kable(
+  category_table,
+  digits = 2,
+  caption = "Top 10 kategorii według sprzedaży"
+)
+```
+
+## Skuteczność promocji
+
+```{r}
+promo_table <- manager$promotion_effect |>
+  mutate(
+    promotion_day = ifelse(promotion_day, "Dzień z promocją", "Dzień bez promocji")
+  ) |>
+  select(
+    rodzaj_dnia = promotion_day,
+    srednia_sprzedaz = average_sales,
+    sprzedaz_calkowita = total_sales,
+    liczba_obserwacji = observations
+  )
+
+knitr::kable(
+  promo_table,
+  digits = 2,
+  caption = "Porównanie sprzedaży w dniach promocyjnych i bez promocji"
+)
+```
+
+# Prognozowanie sprzedaży
+
+```{r}
+prognosis_data <- clean_data |>
+  filter(
+    store_nbr == 1,
+    family == "GROCERY I",
+    date >= max(date) - 365
+  )
+
+prognosis <- create_prognosis(
+  prognosis_data,
+  store = 1,
+  category = "GROCERY I",
+  horizon = 14,
+  use_prophet = TRUE,
+  history_days = 60
+)
+
+knitr::kable(
+  prognosis$comparison,
+  digits = 2,
+  caption = "Porównanie prognoz ARIMA i Prophet"
+)
+```
+
+```{r fig.width=7, fig.height=4}
+prognosis$plot
+```
+
+# Wnioski biznesowe
+
+Na podstawie analizy można wskazać:
+
+1. które sklepy mają najwyższą i najniższą sprzedaż,
+2. które kategorie generują największą sprzedaż,
+3. czy promocje zwiększają średnią sprzedaż,
+4. które kategorie rosną lub spadają,
+5. jaka może być sprzedaż w kolejnym okresie.
+
+Pakiet może być używany przez zespół analityczny do regularnego monitorowania
+sprzedaży i przygotowywania prostych raportów dla menedżerów.
