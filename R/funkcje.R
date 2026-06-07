@@ -1,11 +1,11 @@
-#' Wczytaj dane sprzedazowe
+#' Wczytanie danych sprzedażowych
 #'
-#' Funkcja wczytuje trzy pliki CSV: dane sprzedazy, dane sklepow oraz dane o swietach. Nastepnie laczy je w jedna tabele analityczna.
+#' Funkcja wczytuje trzy pliki CSV: dane sprzedaży, dane sklepów oraz dane o świętach. Następnie łączy je w jedną tabele analityczną.
 #'
-#' @param train_path sciezka do pliku train.csv
-#' @param stores_path sciezka do pliku stores.csv
-#' @param holidays_path sciezka do pliku holidays_events.csv
-#' @return tabela z danymi sprzedazowymi
+#' @param train_path ścieżka do pliku train.csv
+#' @param stores_path ścieżka do pliku stores.csv
+#' @param holidays_path ścieżka do pliku holidays_events.csv
+#' @return tabela z danymi sprzedażowymi
 #' @export
 load_sales_data <- function(train_path = "data/train.csv", stores_path = "data/stores.csv", holidays_path = "data/holidays_events.csv") {
   if (!file.exists(train_path)) stop("Nie znaleziono pliku: ", train_path, call. = FALSE)
@@ -25,16 +25,18 @@ load_sales_data <- function(train_path = "data/train.csv", stores_path = "data/s
     dplyr::left_join(holidays, by = "date")
 }
 
-#' Sprawdz jakosc danych
+#' Sprawdzenie jakości danych
 #'
-#' Funkcja sprawdza braki, duplikaty, bledne daty, ujemna sprzedaz i brakujace dni w szeregach czasowych.
-#' @param data dane sprzedazowe
+#' Funkcja sprawdza braki, duplikaty, błędne daty, ujemną sprzedaż i brakujące dni w szeregach czasowych.
+#' @param data dane sprzedażowe
 #' @return lista z wynikami walidacji
 #' @export
 validate_sales_ts <- function(data) {
   missing_values <- colSums(is.na(data))
   duplicates <- data |> dplyr::count(date, store_nbr, family, name = "n") |> dplyr::filter(n > 1)
   negative_sales <- data |> dplyr::filter(!is.na(sales), sales < 0)
+  invalid_promotions <- data |>
+    dplyr::filter(!is.na(onpromotion) & onpromotion < 0)
   invalid_dates <- data |> dplyr::filter(is.na(date))
   date_gaps <- data |>
     dplyr::filter(!is.na(date)) |>
@@ -42,17 +44,17 @@ validate_sales_ts <- function(data) {
     dplyr::group_by(store_nbr, family) |>
     dplyr::summarise(first_date = min(date, na.rm = TRUE), last_date = max(date, na.rm = TRUE), observed_days = dplyr::n(), expected_days = as.integer(last_date - first_date) + 1, missing_days = expected_days - observed_days, .groups = "drop") |>
     dplyr::filter(missing_days > 0)
-  summary <- tibble::tibble(problem = c("braki danych", "duplikaty", "ujemna sprzedaz", "bledne daty", "brakujace dni"), liczba = c(sum(missing_values), nrow(duplicates), nrow(negative_sales), nrow(invalid_dates), nrow(date_gaps)))
+  summary <- tibble::tibble(problem = c("braki danych", "duplikaty", "ujemna sprzedaż", "błędne daty", "brakujace dni", "niepoprawne promocje"), liczba = c(sum(missing_values), nrow(duplicates), nrow(negative_sales), nrow(invalid_dates), nrow(date_gaps), nrow(invalid_promotions)))
   list(summary = summary, missing_values = missing_values, duplicates = duplicates, negative_sales = negative_sales, invalid_dates = invalid_dates, date_gaps = date_gaps)
 }
 
-#' Wyczysc dane sprzedazowe
+#' Czyszczenie danych sprzedażowych
 #'
-#' Funkcja laczy duplikaty przez sumowanie sprzedazy, uzupelnia brakujace dni wartoscia 0 i sortuje dane.
-#' @param data dane sprzedazowe
+#' Funkcja łączy duplikaty przez sumowanie sprzedaży, uzupełnia brakujące dni wartością 0 i sortuje dane.
+#' @param data dane sprzedażowe
 #' @return wyczyszczona tabela
 #' @export
-clean_sales_ts <- function(data) {
+clean_sales_ts <- function(data, aggregation = "day"){
   data |>
     dplyr::mutate(date = lubridate::as_date(date), sales = as.numeric(sales), onpromotion = as.numeric(onpromotion)) |>
     dplyr::group_by(date, store_nbr, family) |>
@@ -62,14 +64,38 @@ clean_sales_ts <- function(data) {
     tidyr::fill(city, state, type, cluster, .direction = "downup") |>
     dplyr::ungroup() |>
     dplyr::arrange(store_nbr, family, date)
+  
+  if (aggregation == "week") {
+    data <- data |>
+      dplyr::mutate(date = lubridate::floor_date(date, "week")) |>
+      dplyr::group_by(date, store_nbr, family) |>
+      dplyr::summarise(
+        sales = sum(sales, na.rm = TRUE),
+        onpromotion = sum(onpromotion, na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+  
+  if (aggregation == "month") {
+    data <- data |>
+      dplyr::mutate(date = lubridate::floor_date(date, "month")) |>
+      dplyr::group_by(date, store_nbr, family) |>
+      dplyr::summarise(
+        sales = sum(sales, na.rm = TRUE),
+        onpromotion = sum(onpromotion, na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+  
+  data
 }
 
-#' Oblicz metryki biznesowe
+#' Obliczenie metryk biznesowych
 #'
-#' Funkcja liczy sprzedaz calkowita, srednia, zmiennosc, udzial promocji, srednia kroczaca, szczyty i zmiane procentowa.
+#' Funkcja liczy sprzedaż całkowitą, średnią, zmienność, udział promocji, średnią kroczącą, szczyty i zmiane procentową.
 #' @param data wyczyszczone dane
-#' @param window liczba dni do sredniej kroczacej
-#' @return lista z tabela metryk i szeregiem czasowym
+#' @param window liczba dni do średniej kroczącej
+#' @return lista z tabelą metryk i szeregiem czasowym
 #' @export
 compute_sales_metrics <- function(data, window = 7) {
   time_series <- data |>
@@ -89,10 +115,10 @@ compute_sales_metrics <- function(data, window = 7) {
   list(metrics = metrics, time_series = time_series)
 }
 
-#' Narysuj trend sprzedazy
+#' Narysowanie trendu sprzedaży
 #'
-#' Funkcja tworzy wykres trendu sprzedazy z 14-dniowa srednia kroczaca.
-#' @param data dane sprzedazowe
+#' Funkcja tworzy wykres trendu sprzedaży z 14-dniową średnią kroczącą.
+#' @param data dane sprzedażowe
 #' @param store wybrany numer sklepu
 #' @param category wybrana kategoria albo kategorie
 #' @return wykres ggplot
@@ -113,16 +139,16 @@ plot_sales_trends <- function(data, store = NULL, category = NULL) {
     ggplot2::theme_minimal()
 }
 
-#' Wykonaj analize dla wybranych metadanych
+#' Analiza dla wybranych metadanych
 #'
-#' Funkcja wyzszego rzedu: filtruje dane, liczy metryki i tworzy wykres.
-#' @param data dane sprzedazowe
+#' Funkcja filtruje dane, liczy metryki i tworzy wykres.
+#' @param data dane sprzedażowe
 #' @param city miasto
 #' @param state stan albo region
 #' @param type typ sklepu
 #' @param category kategoria
-#' @param date_from data poczatkowa
-#' @param date_to data koncowa
+#' @param date_from data początkowa
+#' @param date_to data końcowa
 #' @return lista: dane, metryki, wykres
 #' @export
 sales_ts_logic <- function(data, city = NULL, state = NULL, type = NULL, category = NULL, date_from = NULL, date_to = NULL) {
@@ -139,10 +165,10 @@ sales_ts_logic <- function(data, city = NULL, state = NULL, type = NULL, categor
   list(data = selected, metrics = metrics, plot = plot)
 }
 
-#' Utworz podsumowanie dla menedzera
+#' Utworzenie podsumowania dla menagera
 #'
-#' Funkcja tworzy ranking sklepow, ranking kategorii, kategorie rosnace i spadajace oraz ocene promocji.
-#' @param data dane sprzedazowe
+#' Funkcja tworzy ranking sklepów, ranking kategorii, kategorie rosnące i spadające oraz ocenę promocji.
+#' @param data dane sprzedażowe
 #' @return lista z rankingami i tekstem podsumowania
 #' @export
 create_management_summary <- function(data) {
@@ -150,10 +176,12 @@ create_management_summary <- function(data) {
     dplyr::group_by(store_nbr, city, state, type) |>
     dplyr::summarise(total_sales = sum(sales, na.rm = TRUE), .groups = "drop") |>
     dplyr::arrange(dplyr::desc(total_sales))
+  
   category_ranking <- data |>
     dplyr::group_by(family) |>
     dplyr::summarise(total_sales = sum(sales, na.rm = TRUE), .groups = "drop") |>
     dplyr::arrange(dplyr::desc(total_sales))
+ 
   monthly_category <- data |>
     dplyr::mutate(month = lubridate::floor_date(date, "month")) |>
     dplyr::group_by(family, month) |>
@@ -162,26 +190,55 @@ create_management_summary <- function(data) {
     dplyr::group_by(family) |>
     dplyr::mutate(previous_month = dplyr::lag(monthly_sales), change_pct = dplyr::if_else(previous_month == 0 | is.na(previous_month), NA_real_, 100 * (monthly_sales - previous_month) / previous_month)) |>
     dplyr::ungroup()
+  
   fastest_growing_category <- monthly_category |> dplyr::filter(!is.na(change_pct)) |> dplyr::arrange(dplyr::desc(change_pct)) |> dplyr::slice(1)
+  
   largest_drop <- monthly_category |> dplyr::filter(!is.na(change_pct)) |> dplyr::arrange(change_pct) |> dplyr::slice(1)
+  
   promotion_effect <- data |>
     dplyr::mutate(promotion_day = onpromotion > 0) |>
     dplyr::group_by(promotion_day) |>
     dplyr::summarise(average_sales = mean(sales, na.rm = TRUE), total_sales = sum(sales, na.rm = TRUE), observations = dplyr::n(), .groups = "drop")
-  text <- paste0("Najlepszy sklep to sklep nr ", store_ranking$store_nbr[1], " z miasta ", store_ranking$city[1], ". Najslabszy sklep to sklep nr ", store_ranking$store_nbr[nrow(store_ranking)], ". Najwieksza kategoria sprzedazy to ", category_ranking$family[1], ". Najszybciej rosnaca kategoria to ", fastest_growing_category$family[1], ". Najwiekszy spadek procentowy odnotowano w kategorii ", largest_drop$family[1], ".")
-  list(text = text, store_ranking = store_ranking, category_ranking = category_ranking, fastest_growing_category = fastest_growing_category, largest_drop = largest_drop, promotion_effect = promotion_effect)
+  
+  last_30_days_avg <- data |>
+    dplyr::filter(date >= max(date, na.rm = TRUE) - 30) |>
+    dplyr::summarise(
+      avg_sales = mean(sales, na.rm = TRUE)
+    ) |>
+    dplyr::pull(avg_sales)
+  
+  text <- paste(
+    "Podsumowanie menedżerskie:",
+    paste0("• Najlepszy sklep: ", store_ranking$store_nbr[1]),
+    paste0("• Najsłabszy sklep: ", store_ranking$store_nbr[nrow(store_ranking)]),
+    paste0("• Top kategoria: ", category_ranking$family[1]),
+    paste0("• Najszybszy wzrost: ", fastest_growing_category$family[1]),
+    paste0("• Największy spadek: ", largest_drop$family[1]),
+    paste0("• Śr. sprzedaż 30 dni: ", round(last_30_days_avg, 2)),
+    sep = "\n"
+  )
+  
+  list(
+    text = text,
+    last_30_days_avg = last_30_days_avg,
+    store_ranking = store_ranking,
+    category_ranking = category_ranking,
+    fastest_growing_category = fastest_growing_category,
+    largest_drop = largest_drop,
+    promotion_effect = promotion_effect
+  )
 }
 
-#' Stworz prognoze sprzedazy ARIMA i Prophet
+#' Tworzenie prognozy sprzedażowej ARIMA i Prophet
 #'
-#' Funkcja prognozuje sprzedaz dla wybranego sklepu i kategorii. Domyslnie wykorzystuje ARIMA oraz Prophet. W raporcie PDF mozna uzyc use_prophet = FALSE, aby raport tworzyl sie szybciej.
-#' @param data dane sprzedazowe
+#' Funkcja prognozuje sprzedaż dla wybranego sklepu i kategorii. Domyślnie wykorzystuje ARIMA oraz Prophet
+#' @param data dane sprzedażowe
 #' @param store numer sklepu
 #' @param category kategoria produktu
 #' @param horizon liczba dni prognozy
-#' @param use_prophet czy uruchamiac model Prophet
+#' @param use_prophet czy uruchamiać model Prophet
 #' @param history_days liczba ostatnich dni historii na wykresie
-#' @return lista z danymi, modelami, prognozami, porownaniem i wykresem
+#' @return lista z danymi, modelami, prognozami, porównaniem i wykresem
 #' @export
 create_prognosis <- function(data, store, category, horizon = 30, use_prophet = TRUE, history_days = 120) {
   selected <- data |>

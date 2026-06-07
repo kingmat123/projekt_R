@@ -2,8 +2,8 @@ Package: projekt_R
 Title: Prosta Analiza Szeregow Czasowych Sprzedazy
 Version: 0.1.0
 Authors@R: 
-    person("Kinga", "Matenka"))
-Description: Prosty pakiet R do analizy szeregow czasowych sprzedazy. Pakiet wczytuje dane, sprawdza ich jakosc, czysci dane, liczy metryki biznesowe, tworzy wykresy, przygotowuje podsumowanie menedzerskie oraz prognozuje sprzedaz metodami ARIMA i Prophet. Raport PDF jest przygotowany tak, aby generowal sie szybciej.
+    person("Kinga", "Mateńka")
+Description: Prosty pakiet R do analizy szeregów czasowych sprzedaży. Pakiet wczytuje dane, sprawdza ich jakość, czyści dane, oblicza metryki biznesowe, tworzy wykresy, przygotowuje podsumowanie menedżerskie oraz prognozuje sprzedaż metodami ARIMA i Prophet.
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

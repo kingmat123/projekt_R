@@ -1,8 +1,9 @@
-# 1. Zapisz token (wklej go w konsoli, gdy program o to poprosi)
+# 1. Zapisanie tokenu
 gitcreds::gitcreds_set()
 
-# 2. Zainicjuj Gita w folderze (jeśli RStudio zapyta o restart, kliknij YES i uruchom krok 3)
+# 2. Zainicjowanie Gita
 usethis::use_git()
 
-# 3. Utwórz repozytorium na GitHubie i wyślij pliki
+# 3. Utwórzenie repozytorium na GitHubie i wysłanie plików
 usethis::use_github()
+

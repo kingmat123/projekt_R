@@ -17,23 +17,6 @@ Pakiet wykonuje cały proces analizy danych sprzedażowych:
 8. Generuje raport PDF.
 9. Ma prosty panel Shiny.
 
-## Struktura projektu
-
-```text
-salesTSKinga_FINAL/
-├── R/funkcje.R
-├── data/train.csv
-├── data/stores.csv
-├── data/holidays_events.csv
-├── raport/raport.Rmd
-├── app.R
-├── workflow.R
-├── github_setup.R
-├── DESCRIPTION
-├── NAMESPACE
-├── README.md
-└── salesTSKinga.Rproj
-```
 
 ## Instalacja pakietów
 
@@ -41,7 +24,7 @@ salesTSKinga_FINAL/
 install.packages(c("devtools", "roxygen2", "dplyr", "tidyr", "readr", "lubridate", "ggplot2", "slider", "forecast", "prophet", "tibble", "knitr", "rmarkdown", "tinytex", "shiny", "DT", "scales"))
 ```
 
-Do generowania PDF potrzebny jest LaTeX. Najprościej zainstalować TinyTeX:
+Do generowania PDF potrzebny jest LaTeX
 
 ```r
 tinytex::install_tinytex()

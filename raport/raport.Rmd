@@ -171,7 +171,8 @@ logic_result$plot
 ```{r}
 manager <- create_management_summary(clean_data)
 
-manager$text
+cat(manager$text)
+
 ```
 
 ## Ranking sklepów
@@ -263,13 +264,12 @@ prognosis$plot
 
 # Wnioski biznesowe
 
-Na podstawie analizy można wskazać:
+Na podstawie analizy można wskazać, że:
 
-1. które sklepy mają najwyższą i najniższą sprzedaż,
-2. które kategorie generują największą sprzedaż,
-3. czy promocje zwiększają średnią sprzedaż,
-4. które kategorie rosną lub spadają,
-5. jaka może być sprzedaż w kolejnym okresie.
-
-Pakiet może być używany przez zespół analityczny do regularnego monitorowania
-sprzedaży i przygotowywania prostych raportów dla menedżerów.
+1. Sprzedaż jest silnie skoncentrowana w Quito, które generuje największy wolumen przychodów w porównaniu do pozostałych lokalizacji.
+2. Sklep 44 jest zdecydowanym liderem z najwyższą sprzedażą równą 63,3 mln. Może pełnić rolę benchmarku operacyjnego dla pozostałych sklepów.
+3. Kategoria GROCERY I dominuje sprzedaż. Jest to kluczowy segment biznesu.
+4. Kategoria PRODUCE dynamicznie rośnie. Jest to sygnał zmiany preferencji klientów - warto zatem zwiększyć dostępność.
+5. Kategoria BABY CARE notuje największy spadek. Segment wymaga analizy ceny, dostępności i konkurencji.
+6. Promocje są ekstremalnie skuteczne. Średnia sprzedaż w dni promocyjne jest ponad 7x wyższa.
+7. Prognozy ARIMA i Prophet są spójne - stabilny trend sprzedaży.
